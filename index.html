@@ -8,18 +8,18 @@
   <style>
     /* ===== Theme: olive + tan minimal ===== */
     :root{
-      --bg: #f7f3ea;          /* light tan */
-      --card: #fffdf7;        /* paper */
-      --ink: #2e2b25;         /* deep brownish */
-      --sub: #5c574d;         /* muted text */
-      --olive: #8a9a5b;       /* pastel olive */
-      --olive-600:#788a4f;
-      --olive-700:#667740;
-      --line: #e6e0d2;
-      --chip: #efe8d8;
-      --chip2: #e4dcc8;
-      --danger:#9c4f3a;
-      --muted:#9c968b;
+      --bg: #f4f7f4;          /* light tan */
+      --card: #ffffff;        /* paper */
+      --ink: #1e2b22;         /* deep brownish */
+      --sub: #5a6b5f;         /* muted text */
+      --olive: #2f6f4e;       /* pastel olive */
+      --olive-600:#2a6347;
+      --olive-700:#22533b;
+      --line: #dce7df;
+      --chip: #eaf5ee;
+      --chip2: #dff0e7;
+      --danger:#b04a3a;
+      --muted:#7a887e;
       --shadow: 0 8px 28px rgba(0,0,0,.08);
     }
     *{box-sizing:border-box}
@@ -36,8 +36,7 @@
     .logo{width:36px; height:36px; border-radius:10px; background:linear-gradient(145deg, var(--olive), #c9c2ad); display:grid; place-items:center; color:white; font-weight:800; box-shadow:var(--shadow)}
     h1{font-size:1.25rem; margin:0}
 
-    .grid{display:grid; grid-template-columns: 1.2fr .8fr; gap:18px}
-    @media (max-width: 920px){ .grid{grid-template-columns: 1fr;}}
+    .grid{display:grid; grid-template-columns: 1fr; gap:18px}
 
     .card{background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow)}
     .pad{padding:16px}
@@ -54,7 +53,7 @@
     .btn.secondary{background:transparent; color:var(--olive-700); border-color:var(--olive)}
     .btn.warn{background:transparent; color:var(--danger); border-color:var(--danger)}
 
-    .result{display:grid; gap:8px; place-items:center; text-align:center; padding:18px; border:1px dashed var(--line); border-radius:14px; background:#fffcf2}
+    .result{display:grid; gap:8px; place-items:center; text-align:center; padding:18px; border:1px dashed var(--line); border-radius:14px; background:#eef7f1}
     .result .big{font-size:1.8rem; font-weight:800}
     .result .meta{font-size:.9rem; color:var(--sub)}
 
@@ -62,9 +61,11 @@
     .chip{padding:6px 10px; background:var(--chip); border:1px solid var(--line); border-radius:999px; font-weight:600; font-size:.85rem}
     .chip.done{background:#dfe9d0; border-color:#c7d7ae}
 
-    .list{display:grid; grid-template-columns: 1fr 140px 110px; gap:10px; align-items:center}
+    .list{display:grid; gap:10px}
     .list .head{font-size:.8rem; color:var(--sub)}
-    .row{padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:#fff; display:contents}
+    .row{padding:12px; border:1px solid var(--line); border-radius:12px; background:#fff; display:grid; gap:8px}
+    .row-title{display:flex; align-items:center; gap:10px; font-weight:600}
+    .row-meta{display:flex; align-items:center; justify-content:space-between; gap:12px}
     .cell{padding:10px 12px; background:#fff; border:1px solid var(--line); border-radius:12px}
     .cell.title{display:flex; gap:10px; align-items:center}
     .badge{font-size:.72rem; background:var(--chip2); padding:4px 8px; border-radius:999px; border:1px solid var(--line)}
@@ -85,7 +86,7 @@
     .uploader input[type=file]{border:1px dashed var(--line); background:#fff; padding:8px 10px; border-radius:10px}
     .linklike{border:none; background:transparent; color:var(--olive-700); text-decoration:underline; cursor:pointer}
 
-    .progressBar{height:8px; background:#ece6d6; border-radius:999px; overflow:hidden}
+    .progressBar{height:8px; background:#e4efe8; border-radius:999px; overflow:hidden} border-radius:999px; overflow:hidden}
     .progressBar > div{height:100%; background:var(--olive); width:0%}
   </style>
 </head>
@@ -163,12 +164,7 @@
           </div>
         </div>
 
-        <div class="list" id="listHead">
-          <div class="head cell">Topic</div>
-          <div class="head cell">Category</div>
-          <div class="head cell">Status</div>
-        </div>
-        <div id="topicList"></div>
+        <div class="list" id="topicList"></div>
       </section>
     </div>
 
@@ -200,8 +196,21 @@
 
     // CSV/TSV parser that handles quotes
     function parseDelimited(text){
-      const isTSV = /\t/.test(text) && !/,/.test(text.split('\n')[0]);
-      const delim = isTSV ? '\t' : ',';
+      // Strip BOM if present
+      if(text && text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+      // Choose delimiter by sniffing first non-empty line
+      const firstLine = (text.split(/
+|
+|
+/).find(l=>l.trim().length>0) || '');
+      const counts = {
+        ',': (firstLine.match(/,/g)||[]).length,
+        '	': (firstLine.match(/	/g)||[]).length,
+        ';': (firstLine.match(/;/g)||[]).length,
+      };
+      let delim = ','; let max = counts[','];
+      for(const k of ['	',';']){ if(counts[k] > max){ max = counts[k]; delim = k; } }
+      // Robust CSV/TSV parser with quotes
       const rows = [];
       let i=0, field='', row=[], inQuotes=false;
       while(i < text.length){
@@ -209,7 +218,26 @@
         if(c === '"'){
           if(inQuotes && text[i+1] === '"'){ field += '"'; i++; }
           else inQuotes = !inQuotes;
-        } else if((c === delim && !inQuotes)){
+        } else if(c === delim && !inQuotes){
+          row.push(field); field='';
+        } else if((c === '
+' || c === '
+') && !inQuotes){
+          if(field!=='' || row.length){ row.push(field); rows.push(row); row=[]; field=''; }
+          // swallow CRLF pairs
+          if(c === '
+' && text[i+1] === '
+') i++;
+        } else {
+          field += c;
+        }
+        i++;
+      }
+      if(field!=='' || row.length){ row.push(field); rows.push(row); }
+      // Remove trailing empty rows
+      while(rows.length && rows[rows.length-1].every(x=>x==='')) rows.pop();
+      return rows;
+    } else if((c === delim && !inQuotes)){
           row.push(field); field='';
         } else if((c === '\n' || c === '\r') && !inQuotes){
           if(field!=='' || row.length){ row.push(field); rows.push(row); row=[]; field=''; }
@@ -266,22 +294,25 @@
 
     function renderList(){
       const items = filterTopics();
-      elTopicList.innerHTML = '';
+      const list = document.getElementById('topicList');
+      list.innerHTML = '';
       items.forEach(t => {
         const row = document.createElement('div');
         row.className = 'row';
-        const c1 = document.createElement('div'); c1.className='cell title';
-        c1.innerHTML = `<span class="${t.done? 'chip done':'chip'}" title="${t.done? 'Completed':'Not completed'}">${t.done? 'Done':'Todo'}</span>` +
-                       `<span>${escapeHTML(t.title)}</span>`;
-        const c2 = document.createElement('div'); c2.className='cell'; c2.innerHTML = `<span class="badge">${escapeHTML(t.category)}</span>`;
-        const c3 = document.createElement('div'); c3.className='cell';
-        const togg = document.createElement('button');
-        togg.className = 'btn secondary'; togg.textContent = t.done? 'Mark Not Done' : 'Mark Done';
-        togg.addEventListener('click', ()=> { setDone(t.id, !t.done, true); });
-        c3.appendChild(togg);
-        row.appendChild(c1); row.appendChild(c2); row.appendChild(c3);
-        elTopicList.appendChild(row);
+        row.innerHTML = `
+          <div class="row-title">
+            <span class="${t.done? 'chip done':'chip'}" title="${t.done? 'Completed':'Not completed'}">${t.done? 'Done':'Todo'}</span>
+            <span>${escapeHTML(t.title)}</span>
+          </div>
+          <div class="row-meta">
+            <span class="badge">${escapeHTML(t.category)}</span>
+            <button class="btn secondary">${t.done? 'Mark Not Done' : 'Mark Done'}</button>
+          </div>
+        `;
+        row.querySelector('button').addEventListener('click', ()=> { setDone(t.id, !t.done, true); });
+        list.appendChild(row);
       });
+    });
     }
 
     function updateStats(){
@@ -389,9 +420,20 @@
         alert('JSON import failed: file must be an exported state {topics, history}'); return;
       }
       const rows = parseDelimited(text);
-      if(!rows.length){ alert('No rows found.'); return; }
+      if(!rows.length){ alert('No rows found. Make sure your file has at least one header row and one row of topics.'); return; }
       const topics = topicsFromTable(rows);
-      if(!topics.length){ alert('No non-empty cells found.'); return; }
+      if(!topics.length){
+        const preview = rows.slice(0,3).map(r=>r.join(' | ')).join('
+');
+        alert('No topics detected.
+
+Quick checks:
+• Is the first row your category names?
+• Are there non-empty cells under them?
+
+File preview:
+' + preview);
+        return; }
       state.topics = mergeUniqueTopics(state.topics, topics);
       saveState();
       bootstrap();
@@ -430,7 +472,10 @@
     // ====== Events ======
     $('#btnPick').addEventListener('click', pickOne);
     $('#btnShuffle').addEventListener('click', ()=>{ state.topics = shuffleInPlace(state.topics); saveState(); renderList(); });
-    [elSearch, elStatus, elCategory].forEach(el=> el.addEventListener('input', ()=>{ renderList(); }));
+    [elSearch, elStatus, elCategory].forEach(el=>{
+      el.addEventListener('input', ()=>{ renderList(); });
+      el.addEventListener('change', ()=>{ renderList(); });
+    });
 
     // ====== Bootstrap ======
     function bootstrap(){
