@@ -13,18 +13,35 @@
       <p id="status" class="status">Loading topics…</p>
     </header>
 
-    <div class="controls row">
-      <button id="btnPick" type="button">Pick Drawing</button>
-      <input id="search" type="text" placeholder="Search topics…" aria-label="Search topics">
-    </div>
-
-    <section aria-labelledby="picked-label" class="picked card">
-      <h2 id="picked-label" class="sr-only">Current pick</h2>
-      <div id="picked" class="picked-content muted">Click “Pick Drawing” to get a random topic.</div>
+    <section aria-labelledby="picked-label" class="picked">
+        <h2 id="picked-label" class="sr-only">Current pick</h2>
+      
+        <div class="row picked-actions">
+          <button id="btnPick" type="button">Pick Drawing</button>
+        </div>
+      
+        <div id="picked" class="picked-card">
+          <div class="muted">Click “Pick Drawing” to get a random topic.</div>
+        </div>
     </section>
 
     <section aria-labelledby="list-label" class="list-section">
       <h2 id="list-label" class="section-title">Topics</h2>
+      <div class="controls row">
+        <input id="search" type="text" placeholder="Search topics…" aria-label="Search topics">
+        <select id="filterCategory" aria-label="Filter by category">
+            <!-- JS populates with unique categories -->
+            <option value="">All categories</option>
+          </select>
+          
+          <select id="filterCompleted" aria-label="Filter by completion date">
+            <option value="">All dates</option>
+            <option value="today">Completed today</option>
+            <option value="7">Completed last 7 days</option>
+            <option value="30">Completed last 30 days</option>
+            <option value="never">Never completed</option>
+          </select>
+    </div>
       <div id="list" class="list"><!-- JS injects rows --></div>
     </section>
 
@@ -33,6 +50,6 @@
     </footer>
   </div>
 
-  <script src="./app.js" defer></script>
+  <script src="./app.js?v=2" defer></script>
 </body>
 </html>

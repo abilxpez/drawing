@@ -10,6 +10,10 @@ const statusEl = $("#status");
 const searchEl = $("#search");
 const btnPick = $("#btnPick");
 
+const COMPLETED_KEY = "art_prompt_completed_at_v1";
+const filterCategoryEl = $("#filterCategory");
+const filterCompletedEl = $("#filterCompleted");
+
 let topics = []; // { id, title, category, done }
 
 init();
@@ -36,7 +40,7 @@ async function init() {
     setStatus(`Loaded ${topics.length} topics from topics.csv`);
   }
 
-  loadDone();
+  loadProgress();
   btnPick.addEventListener("click", pickRandom);
   searchEl.addEventListener("input", renderList);
 
@@ -78,7 +82,7 @@ function normalizeJSON(arr) {
     const title = (t.title || "").trim();
     const category = (t.category || "").trim();
     const id = t.id || hashId(title + "|" + category);
-    return { id, title, category, done: !!t.done };
+    return { id, title, category, done: !!t.done, completedAt: t.completedAt || null };
   });
 }
 
@@ -111,16 +115,25 @@ function hashId(s) {
 
 /* ---------------- Persistence ---------------- */
 
-function saveDone() {
-  const m = Object.fromEntries(topics.map((t) => [t.id, !!t.done]));
-  localStorage.setItem(DONE_KEY, JSON.stringify(m));
-}
-function loadDone() {
-  try {
-    const m = JSON.parse(localStorage.getItem(DONE_KEY) || "{}");
-    topics.forEach((t) => { if (Object.prototype.hasOwnProperty.call(m, t.id)) t.done = !!m[t.id]; });
-  } catch {}
-}
+function saveProgress() {
+    const doneMap = Object.fromEntries(topics.map((t) => [t.id, !!t.done]));
+    const whenMap = Object.fromEntries(
+      topics.map((t) => [t.id, t.completedAt ? Number(t.completedAt) : null])
+    );
+    localStorage.setItem(DONE_KEY, JSON.stringify(doneMap));
+    localStorage.setItem(COMPLETED_KEY, JSON.stringify(whenMap));
+  }
+  function loadProgress() {
+    try {
+      const doneMap = JSON.parse(localStorage.getItem(DONE_KEY) || "{}");
+      const whenMap = JSON.parse(localStorage.getItem(COMPLETED_KEY) || "{}");
+      topics.forEach((t) => {
+        if (Object.prototype.hasOwnProperty.call(doneMap, t.id)) t.done = !!doneMap[t.id];
+        if (Object.prototype.hasOwnProperty.call(whenMap, t.id)) t.completedAt = whenMap[t.id];
+      });
+    } catch {}
+  }
+  
 
 /* ---------------- UI ---------------- */
 
@@ -141,7 +154,9 @@ function renderList() {
 
     const title = document.createElement("div");
     title.className = "title";
-    title.textContent = t.category ? `${t.title} (${t.category})` : t.title;
+    title.innerHTML = t.category
+        ? `${escapeHTML(t.title)}<div class="tag">${escapeHTML(t.category)}</div>`
+        : `${escapeHTML(t.title)}`;
 
     const btn = document.createElement("button");
     btn.type = "button";
@@ -161,9 +176,8 @@ function pickRandom() {
   if (!arr.length) { pickedEl.textContent = "No topics available."; return; }
   const t = arr[Math.floor(Math.random() * arr.length)];
   pickedEl.innerHTML = `
-    <div><strong>Picked:</strong> ${escapeHTML(t.title)}${
-      t.category ? ` <span class="muted">(${escapeHTML(t.category)})</span>` : ""
-    }</div>
+    <div><strong>Picked:</strong> <span class="picked-title">${escapeHTML(t.title)}</span></div>
+    ${t.category ? `<div class="tag">${escapeHTML(t.category)}</div>` : ""}
     <div class="row" style="margin-top:8px">
       <button type="button" onclick="toggleDone('${t.id}')">${
         t.done ? "Mark Not Done" : "Mark Done"
@@ -172,13 +186,15 @@ function pickRandom() {
 }
 
 function toggleDone(id) {
-  const t = topics.find((x) => x.id === id);
-  if (!t) return;
-  t.done = !t.done;
-  saveDone();
-  renderList();
-  if (pickedEl.textContent.includes(t.title)) pickRandom();
-}
+    const t = topics.find((x) => x.id === id);
+    if (!t) return;
+    t.done = !t.done;
+    t.completedAt = t.done ? Date.now() : null;  // ← set/clear timestamp
+    saveProgress();
+    renderList();
+    if (pickedEl.textContent.includes(t.title)) pickRandom();
+  }
+  
 
 /* ---------------- misc ---------------- */
 

@@ -6,6 +6,12 @@
     --line: #dce7df;
     --accent: #2f6f4e;
     --accent-600: #2a6347;
+    --picked: #e7f3ed;          
+    --picked-border: #cfe4d9;   
+    --tag-bg: #e7f3ed;
+    --tag-border: #cfe4d9;
+    --tag-ink: #1f3b2f;
+    --olive-pastel: #6b8f71; 
   }
   
   * { box-sizing: border-box; }
@@ -45,6 +51,15 @@
     border-radius: 10px;
     min-width: 240px;
   }
+
+  select {
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    padding: 10px 12px;
+    border-radius: 10px;
+    min-width: 160px;
+  }
   
   .card {
     background: var(--card);
@@ -65,7 +80,7 @@
     border-radius: 12px;
     padding: 10px 12px;
   }
-  .item .title { flex: 1; }
+  .item .title { flex: 1; display: flex; flex-direction: column; }
   .item .meta { color: var(--muted); font-size: .9rem; }
   
   .muted { color: var(--muted); }
@@ -76,4 +91,34 @@
     clip: rect(0,0,0,0); white-space: nowrap; border: 0;
   }
   .footer { margin-top: 18px; color: var(--muted); }
+
+.picked { margin-top: 12px; }
+.picked-actions { margin-bottom: 8px; }
+
+.picked-card {
+  background: var(--picked);
+  border: 1px solid var(--picked-border);
+  border-radius: 14px;
+  padding: 14px;
+  min-height: 64px; /* keeps a nice rectangle even before a pick */
+}
+
+.picked-card .row { width: 100%; }
+.picked-card .row button { margin-left: auto; }
+
+.tag{
+    display: block;          
+    margin-top: 2px;
+    padding: 0;              
+    border: 0;
+    background: transparent;
+    color: var(--olive-pastel);
+    font-size: .85rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-transform: lowercase;
+  }
+
+  /* lowercase titles in list and picked card */
+.item .title, .picked-title { text-transform: lowercase; }
   
