@@ -24,12 +24,31 @@
     line-height: 1.45;
   }
   
-  .container { max-width: 760px; margin: 24px auto 56px; padding: 0 16px; }
+  .container {
+    max-width: 1200px;   /* give it more space */
+    margin: 24px auto 56px;
+    padding: 0 24px;     /* a bit more side padding */
+  }
   .header h1 { font-size: 1.35rem; margin: 0; }
   .status { margin: 6px 0 0; color: var(--muted); }
   
   .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  
+
+  .controls.row {
+    flex-wrap: nowrap;   /* don’t wrap */
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+
+.add-box .row input[type="text"],
+.add-box .row select {
+  min-width: 160px;
+  flex: 1;
+}
+.add-box {
+    margin-bottom: 16px; /* adds space before the topic list */
+  }
+
   button {
     appearance: none;
     border: 1px solid var(--accent);
@@ -83,6 +102,16 @@
   .item .title { flex: 1; display: flex; flex-direction: column; }
   .item .meta { color: var(--muted); font-size: .9rem; }
   
+/* timestamp on cards: small, muted, right side, slightly toward bottom */
+.stamp {
+    margin-left: auto;       /* push it to the right (but before the button) */
+    margin-right: 8px;
+    align-self: flex-end;    /* sit a bit lower than centered row items */
+    font-size: .8rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
   .muted { color: var(--muted); }
   .sr-only {
     position: absolute !important;

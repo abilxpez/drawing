@@ -41,7 +41,29 @@
             <option value="30">Completed last 30 days</option>
             <option value="never">Never completed</option>
           </select>
+
+          <select id="sortBy" aria-label="Sort topics">
+            <option value="date_desc">Date completed — newest</option>
+            <option value="date_asc">Date completed — oldest</option>
+            <option value="alpha">Title — A→Z</option>
+            <option value="alpha_desc">Title — Z→A</option>
+            <option value="category">Category — A→Z</option>
+          </select>
     </div>
+
+    <div class="add-box card">
+        <div class="row">
+          <input id="newTitle" type="text" placeholder="New topic title…" aria-label="New topic title">
+          <select id="newCategory" aria-label="Category">
+            <option value="">Select category…</option>
+            <!-- JS will append existing categories here -->
+            <option value="__new__">+ New category…</option>
+          </select>
+          <input id="newCategoryName" type="text" placeholder="New category name…" aria-label="New category name" style="display:none">
+          <button id="btnAddTopic" type="button">Add Topic</button>
+        </div>
+      </div>
+      
       <div id="list" class="list"><!-- JS injects rows --></div>
     </section>
 
