@@ -204,12 +204,16 @@ async function loadSharedCompletions() {
   }
   
   async function upsertCompletion(t) {
-    // pushes a single topic’s state to the server
-    await setDoc(doc(db, FIREBASE_COLLECTION, t.id), {
-      done: !!t.done,
-      completedAt: t.completedAt ? new Date(t.completedAt).toISOString() : null
-    }, { merge: true });
-  }
+    try {
+      await setDoc(doc(db, FIREBASE_COLLECTION, t.id), {
+        done: !!t.done,
+        completedAt: t.completedAt ? new Date(t.completedAt).toISOString() : null
+      }, { merge: true });
+      console.log("[firestore] upsert ok", t.id, t.done);
+    } catch (e) {
+      console.error("[firestore] upsert FAILED", e);
+    }
+  }  
   
   function subscribeRealtime() {
     // live updates from other clients
