@@ -150,4 +150,17 @@
 
   /* lowercase titles in list and picked card */
 .item .title, .picked-title { text-transform: lowercase; }
+
+.tracker{
+    display: flex;
+    gap: 14px;
+    align-items: baseline;
+    font-size: 0.95rem;
+    color: var(--muted);
+    margin: 6px 0 10px; /* a little space under the button, above the card */
+  }
+  
+/* make the numbers slightly bolder for scan-ability */
+.tracker .num { color: var(--ink); font-weight: 600; }
+  
   

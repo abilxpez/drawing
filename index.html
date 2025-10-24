@@ -19,6 +19,8 @@
         <div class="row picked-actions">
           <button id="btnPick" type="button">Pick Drawing</button>
         </div>
+
+        <div id="tracker" class="tracker"></div>
       
         <div id="picked" class="picked-card">
           <div class="muted">Click “Pick Drawing” to get a random topic.</div>
@@ -63,7 +65,7 @@
           <button id="btnAddTopic" type="button">Add Topic</button>
         </div>
       </div>
-      
+
       <div id="list" class="list"><!-- JS injects rows --></div>
     </section>
 
@@ -72,6 +74,37 @@
     </footer>
   </div>
 
-  <script src="./app.js?v=2" defer></script>
+  <script type="module">
+    // Import only what we need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { getFirestore, collection, doc, getDocs, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+  
+    // Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyAKb5-tfbXmsxKVXaXR-T1B-zhyh_GfcLs",
+      authDomain: "drawing-922ac.firebaseapp.com",
+      projectId: "drawing-922ac",
+      storageBucket: "drawing-922ac.firebasestorage.app",
+      messagingSenderId: "814393396825",
+      appId: "1:814393396825:web:5330970c8ad8a64d77eb48",
+      measurementId: "G-W28BRJLF0T"
+    };
+  
+    // Initialize Firebase core SDKs
+    const app  = initializeApp(firebaseConfig);
+    const db   = getFirestore(app);
+    const auth = getAuth(app);
+  
+    // Expose them globally for app.js
+    window.__fb = {
+      db, auth,
+      getDocs, setDoc, onSnapshot, collection, doc,
+      signInAnonymously, onAuthStateChanged
+    };
+  </script>
+  
+  <!-- keep your existing line right after this -->
+  <script src="./app.js" defer></script>  
 </body>
 </html>

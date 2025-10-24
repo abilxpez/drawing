@@ -23,11 +23,20 @@ const newCategoryEl = $("#newCategory");
 const newCategoryNameEl = $("#newCategoryName");
 const btnAddTopicEl = $("#btnAddTopic");
 
+const { db, auth, getDocs, setDoc, onSnapshot, collection, doc, signInAnonymously, onAuthStateChanged } = window.__fb;
+const FIREBASE_COLLECTION = "drawing_completions";
+
 let topics = []; // { id, title, category, done }
 
 init();
 
 async function init() {
+
+    await new Promise((resolve) => {
+        onAuthStateChanged(auth, (user) => resolve(user || null));
+        signInAnonymously(auth).catch(() => resolve(null));
+    });
+    
     if (location.protocol === "file:") {
         setStatus("Open via a local server (e.g., python -m http.server). file:// cannot fetch.");
         return;
@@ -38,7 +47,6 @@ async function init() {
     const json = await fetchJSON("./topics.json");
     if (Array.isArray(json)) {
         topics = normalizeJSON(json);
-        setStatus(`Loaded ${topics.length} topics from topics.json`);
     } else {
         const csv = await fetchText("./topics.csv");
         if (csv == null) {
@@ -46,8 +54,8 @@ async function init() {
             return;
         }
         topics = parseDelimitedToTopics(csv);
-        setStatus(`Loaded ${topics.length} topics from topics.csv`);
     }
+    setStatus(""); // clear status line
 
     loadProgress();
 
@@ -77,8 +85,14 @@ async function init() {
 
     if (sortByEl) sortByEl.addEventListener("change", renderList);
 
+    await loadSharedCompletions();
+    subscribeRealtime();
+
     renderList();
+    renderTracker();
+    
     pickedEl.textContent = 'Click "Pick Drawing" to get a random topic.';
+
 }
 
 /* ---------------- Fetch helpers ---------------- */
@@ -167,6 +181,53 @@ function loadProgress() {
     } catch { }
 }
 
+// --- Firestore sync helpers ---
+
+async function loadSharedCompletions() {
+    // pulls server state and merges into in-memory `topics`
+    const snap = await getDocs(collection(db, FIREBASE_COLLECTION));
+    const map = new Map();
+    snap.forEach((d) => {
+      const x = d.data();
+      map.set(d.id, {
+        done: !!x.done,
+        completedAt: x.completedAt ? new Date(x.completedAt).getTime() : null
+      });
+    });
+    topics.forEach((t) => {
+      if (map.has(t.id)) {
+        const s = map.get(t.id);
+        t.done = s.done;
+        t.completedAt = s.completedAt;
+      }
+    });
+  }
+  
+  async function upsertCompletion(t) {
+    // pushes a single topic’s state to the server
+    await setDoc(doc(db, FIREBASE_COLLECTION, t.id), {
+      done: !!t.done,
+      completedAt: t.completedAt ? new Date(t.completedAt).toISOString() : null
+    }, { merge: true });
+  }
+  
+  function subscribeRealtime() {
+    // live updates from other clients
+    onSnapshot(collection(db, FIREBASE_COLLECTION), (snap) => {
+      snap.docChanges().forEach((ch) => {
+        const id = ch.doc.id;
+        const d  = ch.doc.data();
+        const item = topics.find((x) => x.id === id);
+        if (!item) return;
+        item.done = !!d.done;
+        item.completedAt = d.completedAt ? new Date(d.completedAt).getTime() : null;
+      });
+      // keep UI in sync
+      renderList();
+      if (typeof renderTracker === "function") renderTracker();
+    });
+  }
+  
 
 /* ---------------- UI ---------------- */
 
@@ -253,7 +314,9 @@ function toggleDone(id) {
     t.done = !t.done;
     t.completedAt = t.done ? Date.now() : null;
     saveProgress();
+    upsertCompletion(t);
     renderList();
+    renderTracker();
     if (pickedEl.textContent.includes(t.title)) pickRandom();
 }
 
@@ -281,87 +344,133 @@ function formatStamp(ts) {
 function populateCategoryFilter(sourceTopics) {
     // For the FILTER select
     if (filterCategoryEl) {
-      const prev = filterCategoryEl.value;
-      const cats = Array.from(new Set(sourceTopics.map(t => t.category).filter(Boolean))).sort();
-      filterCategoryEl.querySelectorAll("option:not(:first-child)").forEach(o => o.remove());
-      cats.forEach(c => {
-        const opt = document.createElement("option");
-        opt.value = c;
-        opt.textContent = c;
-        filterCategoryEl.appendChild(opt);
-      });
-      if (prev && cats.includes(prev)) filterCategoryEl.value = prev;
-      else filterCategoryEl.value = "";
+        const prev = filterCategoryEl.value;
+        const cats = Array.from(new Set(sourceTopics.map(t => t.category).filter(Boolean))).sort();
+        filterCategoryEl.querySelectorAll("option:not(:first-child)").forEach(o => o.remove());
+        cats.forEach(c => {
+            const opt = document.createElement("option");
+            opt.value = c;
+            opt.textContent = c;
+            filterCategoryEl.appendChild(opt);
+        });
+        if (prev && cats.includes(prev)) filterCategoryEl.value = prev;
+        else filterCategoryEl.value = "";
     }
-  
+
     // For the ADD-TOPIC select
     if (newCategoryEl) {
-      const keepNew = newCategoryEl.value === "__new__";
-      // Remove all but the first and the last (“+ New category…”) option
-      const opts = Array.from(newCategoryEl.querySelectorAll("option"));
-      const first = opts[0];
-      const last = opts[opts.length - 1]; // assumes it's __new__
-      newCategoryEl.innerHTML = "";
-      newCategoryEl.appendChild(first);
-      const cats = Array.from(new Set(sourceTopics.map(t => t.category).filter(Boolean))).sort();
-      cats.forEach(c => {
-        const opt = document.createElement("option");
-        opt.value = c;
-        opt.textContent = c;
-        newCategoryEl.appendChild(opt);
-      });
-      newCategoryEl.appendChild(last);
-      // Restore selection
-      newCategoryEl.value = keepNew ? "__new__" : "";
-      newCategoryNameEl.style.display = keepNew ? "" : "none";
+        const keepNew = newCategoryEl.value === "__new__";
+        // Remove all but the first and the last (“+ New category…”) option
+        const opts = Array.from(newCategoryEl.querySelectorAll("option"));
+        const first = opts[0];
+        const last = opts[opts.length - 1]; // assumes it's __new__
+        newCategoryEl.innerHTML = "";
+        newCategoryEl.appendChild(first);
+        const cats = Array.from(new Set(sourceTopics.map(t => t.category).filter(Boolean))).sort();
+        cats.forEach(c => {
+            const opt = document.createElement("option");
+            opt.value = c;
+            opt.textContent = c;
+            newCategoryEl.appendChild(opt);
+        });
+        newCategoryEl.appendChild(last);
+        // Restore selection
+        newCategoryEl.value = keepNew ? "__new__" : "";
+        newCategoryNameEl.style.display = keepNew ? "" : "none";
     }
-  }
-  
-  function addTopic() {
+}
+
+function addTopic() {
     const title = (newTitleEl?.value || "").trim();
     let categorySel = newCategoryEl?.value || "";
     const newCat = (newCategoryNameEl?.value || "").trim();
-  
+
     if (!title) { alert("Please enter a topic title."); newTitleEl?.focus(); return; }
-  
+
     let category = categorySel === "__new__" ? newCat : categorySel;
     category = (category || "").trim();
-  
-    if (!category) { alert("Please choose or enter a category."); 
-      if (categorySel === "__new__") newCategoryNameEl?.focus(); else newCategoryEl?.focus();
-      return;
+
+    if (!category) {
+        alert("Please choose or enter a category.");
+        if (categorySel === "__new__") newCategoryNameEl?.focus(); else newCategoryEl?.focus();
+        return;
     }
-  
+
     // Build topic, prevent duplicate (same title+category)
     const id = hashId(title + "|" + category);
     if (topics.some(t => t.id === id)) {
-      alert("That topic already exists in this category.");
-      return;
+        alert("That topic already exists in this category.");
+        return;
     }
-  
+
     const topic = { id, title, category, done: false, completedAt: null };
-  
+
     // Persist to user-topics
     const existing = loadUserTopics();
     existing.push(topic);
     saveUserTopics(existing);
-  
+
     // Append to working set
     topics.push(topic);
-  
+
     // Refresh UI & dropdowns
     populateCategoryFilter(topics);
     renderList();
-  
+
     // Reset inputs
     if (newCategoryEl) newCategoryEl.value = categorySel === "__new__" ? "__new__" : category;
     if (categorySel === "__new__") {
-      newCategoryNameEl.value = "";
-      newCategoryNameEl.style.display = "none";
-      newCategoryEl.value = category; // switch to the newly created category
+        newCategoryNameEl.value = "";
+        newCategoryNameEl.style.display = "none";
+        newCategoryEl.value = category; // switch to the newly created category
     }
     newTitleEl.value = "";
     newTitleEl.focus();
+}
+
+function dayKey(ts) {
+    const d = new Date(Number(ts));
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${dd}`;
+  }
+  
+  function computeStats() {
+    const total = topics.length;
+    const completed = topics.filter(t => t.done).length;
+    const remaining = total - completed;
+  
+    // build set of days that have at least one completion
+    const days = new Set(
+      topics.filter(t => t.completedAt).map(t => dayKey(t.completedAt))
+    );
+  
+    // compute streak up to today: consecutive days (today, yesterday, ...)
+    let streak = 0;
+    const now = new Date();
+    // normalize to local midnight
+    now.setHours(0,0,0,0);
+    while (true) {
+      const key = dayKey(now.getTime());
+      if (!days.has(key)) break;
+      streak += 1;
+      now.setDate(now.getDate() - 1);
+    }
+  
+    return { total, completed, remaining, streak };
+  }
+  
+  function renderTracker() {
+    const el = document.getElementById("tracker");
+    if (!el) return;
+    const { total, completed, remaining, streak } = computeStats();
+    el.innerHTML = `
+      <div>Total: <span class="num">${total}</span></div>
+      <div>Completed: <span class="num">${completed}</span></div>
+      <div>Remaining: <span class="num">${remaining}</span></div>
+      <div>Day streak: <span class="num">${streak}</span></div>
+    `;
   }
   
 
